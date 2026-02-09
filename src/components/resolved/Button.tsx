@@ -1,13 +1,13 @@
-import { getBrand } from "../../helpers/getBrand";
+import { getStore } from "../../helpers/getStore";
 import { BaseButton } from "../base/Button/Button";
-import { VuseButton } from "../brands/vuse/Button";
+import { VuseEnButton } from "../brands/vuse-en/Button";
 
 export const Button = (() => {
-  const { brand } = getBrand();
+  const { brand, locale } = getStore();
 
-  switch (brand) {
-    case "vuse":
-      return VuseButton;
+  switch (`${brand}-${locale}`) {
+    case "vuse-en":
+      return VuseEnButton;
     default:
       return BaseButton;
   }
