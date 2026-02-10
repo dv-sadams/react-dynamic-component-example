@@ -20,7 +20,7 @@ src/
 │   │   └── glo/
 │   └── resolved/       # Runtime-resolved exports (consumer-facing)
 ├── helpers/
-│   └── getBrand.ts     # Brand detection utility
+│   └── getStore.ts     # Brand detection utility
 ├── contexts/           # React contexts
 ├── providers/          # Context providers
 ├── hooks/              # Custom hooks
@@ -62,11 +62,11 @@ The resolved layer determines which component to use at runtime:
 ```typescript
 // src/components/resolved/Button.tsx
 export const Button = (() => {
-  const { brand } = getBrand();
+  const { brand, locale } = getStore();
 
-  switch (brand) {
-    case "vuse":
-      return VuseButton;
+  switch (`${brand}-${locale}`) {
+    case "vuse-en":
+      return VuseEnButton;
     default:
       return BaseButton;
   }
@@ -75,13 +75,14 @@ export const Button = (() => {
 
 ### 4. Brand Detection
 
-The `getBrand()` helper reads from a global configuration:
+The `getStore()` helper reads from a global configuration:
 
 ```typescript
-// src/helpers/getBrand.ts
-export function getBrand() {
+// src/helpers/getStore.ts
+export function getStore() {
   return {
     brand: window.Shopify.brand,
+    locale: window.Shopify.locale,
   };
 }
 ```
@@ -113,18 +114,18 @@ export const BaseCard: React.FC<CardProps> = ({ title, children }) => {
 
 ```typescript
 // src/components/resolved/Card.tsx
-import { getBrand } from "../../helpers/getBrand";
+import { getStore } from "../../helpers/getStore";
 import { BaseCard } from "../base/Card/Card";
 import { VuseCard } from "../brands/vuse/Card";
 
 export const Card = (() => {
-  const { brand } = getBrand();
+  const { brand, locale } = getStore();
 
-  switch (brand) {
-    case "vuse":
-      return VuseCard;
+  switch (`${brand}-${locale}`) {
+    case "vuse-en":
+      return VuseEnButton;
     default:
-      return BaseCard;
+      return BaseButton;
   }
 })();
 ```
