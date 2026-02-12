@@ -4,5 +4,8 @@ import { themeContract } from "@/styles/theme.contract.css";
 
 export const baseTheme = createTheme(themeContract, {
   brand: "blue",
-  pageWidth: "1800px",
+  pageWidth: {
+    medium: "1200px",
+    large: "1800px",
+  },
 });

@@ -1,4 +1,4 @@
-import { Button } from "@/components/resolved/Button";
+import { Button } from "@/components";
 import { useExample } from "@/hooks/useExample";
 
 function App() {
