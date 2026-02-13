@@ -4,11 +4,11 @@ This project demonstrates a scalable component architecture pattern for managing
 
 ## Architecture Overview
 
-The architecture is based on three core layers:
+The architecture is based on three core layers with automatic resolution:
 
 1. **Base Layer** - Default implementations (components, layouts, etc.)
 2. **Brand-Specific Layer** - Brand overrides when customization is needed
-3. **Resolved Layer** - Runtime resolution layer that consumers import from
+3. **Automatic Resolution** - Registry-based resolution with barrel exports
 
 This pattern can be applied to any type of UI element or structure in your application.
 
@@ -24,8 +24,8 @@ src/
 │   │       └── Button/
 │   │           ├── Button.tsx
 │   │           └── Button.css.ts
-│   └── resolved/       # Runtime-resolved exports (consumer-facing)
-│       └── Button.tsx
+│   ├── registry.ts     # Component registry (maps base → brand overrides)
+│   └── index.ts        # Barrel export (consumer-facing)
 ├── layouts/
 │   ├── base/           # Default layout implementations
 │   │   └── DefaultLayout/
@@ -36,8 +36,8 @@ src/
 │   │       └── DefaultLayout/
 │   │           ├── DefaultLayout.tsx
 │   │           └── DefaultLayout.css.ts
-│   └── resolved/       # Runtime-resolved exports (consumer-facing)
-│       └── DefaultLayout.tsx
+│   ├── registry.ts     # Layout registry (maps base → brand overrides)
+│   └── index.ts        # Barrel export (consumer-facing)
 ├── styles/
 │   ├── theme.contract.css.ts  # Theme contract definition
 │   ├── themes/
@@ -45,8 +45,8 @@ src/
 │   │   └── vuse.theme.css.ts  # Vuse theme values
 │   └── reset.css.ts
 ├── helpers/
-│   ├── getBrand.ts     # Simple brand detection
-│   └── getStore.ts     # Brand + locale detection
+│   ├── getStore.ts         # Brand + locale detection
+│   └── resolveComponent.ts # Automatic component resolver
 ├── contexts/           # React contexts
 ├── providers/          # Context providers (ThemeProvider, etc.)
 ├── consts/             # Constants (theme mappings, etc.)
@@ -112,25 +112,65 @@ export const buttonClass = style({
 });
 ```
 
-### 3. Resolved Components
+### 3. Component Registry
 
-The resolved layer determines which component to use at runtime:
+The registry maps base components to their brand-specific overrides:
 
 ```typescript
-// src/components/resolved/Button.tsx
-export const Button = (() => {
-  const { brand, locale } = getStore();
+// src/components/registry.ts
+import { BaseButton } from "./base/Button/Button";
+import { VuseEnButton } from "./brands/vuse-en/Button/Button";
 
-  switch (`${brand}-${locale}`) {
-    case "vuse-en":
-      return VuseEnButton;
-    default:
-      return BaseButton;
-  }
-})();
+export const componentRegistry = {
+  Button: {
+    base: BaseButton,
+    brands: {
+      "vuse-en": VuseEnButton,
+    },
+  },
+};
 ```
 
-### 4. Brand Detection
+### 4. Automatic Resolution
+
+The resolver automatically selects the correct component based on brand-locale:
+
+```typescript
+// src/helpers/resolveComponent.ts
+export function resolveComponent<T>(componentMap: ComponentMap<T>): T {
+  return (() => {
+    const { brand, locale } = getStore();
+    const key = `${brand}-${locale}`;
+
+    // Try brand-locale specific (e.g., "vuse-en")
+    if (componentMap.brands?.[key]) {
+      return componentMap.brands[key];
+    }
+
+    // Try brand-only (e.g., "vuse")
+    if (componentMap.brands?.[brand]) {
+      return componentMap.brands[brand];
+    }
+
+    // Fallback to base
+    return componentMap.base;
+  })();
+}
+```
+
+### 5. Barrel Export
+
+The barrel file uses the resolver to export the correct component:
+
+```typescript
+// src/components/index.ts
+import { resolveComponent } from "@/helpers/resolveComponent";
+import { componentRegistry } from "./registry";
+
+export const Button = resolveComponent(componentRegistry.Button);
+```
+
+### 6. Brand Detection
 
 The `getStore()` helper reads from a global configuration:
 
@@ -146,7 +186,7 @@ export function getStore() {
 
 The brand and locale are typically injected via environment variables or server-side rendering.
 
-### 5. Theming with Vanilla Extract
+### 7. Theming with Vanilla Extract
 
 This project uses [Vanilla Extract](https://vanilla-extract.style/) for type-safe, zero-runtime CSS-in-TypeScript styling.
 
@@ -279,24 +319,31 @@ export const defaultLayout = style({
 });
 ```
 
-### Resolved Layout
+### Layout Registry & Barrel Export
+
+Layouts use the same registry pattern:
 
 ```typescript
-// src/layouts/resolved/DefaultLayout.tsx
-import { getStore } from "@/helpers/getStore";
-import { BaseLayout } from "@/layouts/base/DefaultLayout/DefaultLayout";
-import { VuseEnDefaultLayout } from "@/layouts/brands/vuse-en/DefaultLayout/DefaultLayout";
+// src/layouts/registry.ts
+import { BaseLayout } from "./base/DefaultLayout/DefaultLayout";
+import { VuseEnDefaultLayout } from "./brands/vuse-en/DefaultLayout/DefaultLayout";
 
-export const Layout = (() => {
-  const { brand, locale } = getStore();
+export const layoutRegistry = {
+  DefaultLayout: {
+    base: BaseLayout,
+    brands: {
+      "vuse-en": VuseEnDefaultLayout,
+    },
+  },
+};
+```
 
-  switch (`${brand}-${locale}`) {
-    case "vuse-en":
-      return VuseEnDefaultLayout;
-    default:
-      return BaseLayout;
-  }
-})();
+```typescript
+// src/layouts/index.ts
+import { resolveComponent } from "@/helpers/resolveComponent";
+import { layoutRegistry } from "./registry";
+
+export const DefaultLayout = resolveComponent(layoutRegistry.DefaultLayout);
 ```
 
 ## Adding New Components
@@ -341,27 +388,46 @@ export const cardTitle = style({
 });
 ```
 
-### Step 2: Create the Resolved Export
+### Step 2: Register in Component Registry
+
+Add your component to the registry:
 
 ```typescript
-// src/components/resolved/Card.tsx
-import { getStore } from "@/helpers/getStore";
-import { BaseCard } from "@/components/base/Card/Card";
-import { VuseEnCard } from "@/components/brands/vuse-en/Card/Card";
+// src/components/registry.ts
+import { BaseButton } from "./base/Button/Button";
+import { VuseEnButton } from "./brands/vuse-en/Button/Button";
+import { BaseCard } from "./base/Card/Card";  // Add this
 
-export const Card = (() => {
-  const { brand, locale } = getStore();
-
-  switch (`${brand}-${locale}`) {
-    case "vuse-en":
-      return VuseEnCard;
-    default:
-      return BaseCard;
-  }
-})();
+export const componentRegistry = {
+  Button: {
+    base: BaseButton,
+    brands: {
+      "vuse-en": VuseEnButton,
+    },
+  },
+  Card: {  // Add this entry
+    base: BaseCard,
+    brands: {
+      // Add brand overrides here when needed
+    },
+  },
+};
 ```
 
-### Step 3: (Optional) Add Brand Override
+### Step 3: Export from Barrel
+
+Add the component export to the barrel:
+
+```typescript
+// src/components/index.ts
+import { resolveComponent } from "@/helpers/resolveComponent";
+import { componentRegistry } from "./registry";
+
+export const Button = resolveComponent(componentRegistry.Button);
+export const Card = resolveComponent(componentRegistry.Card);  // Add this
+```
+
+### Step 4: (Optional) Add Brand Override
 
 Only create if the brand needs different structure or behavior:
 
@@ -398,11 +464,28 @@ export const cardTitle = style({
 });
 ```
 
-### Step 4: Use in Your Application
+Then update the registry to include the brand override:
+
+```typescript
+// src/components/registry.ts
+import { VuseEnCard } from "./brands/vuse-en/Card/Card";  // Import brand override
+
+export const componentRegistry = {
+  // ... other components
+  Card: {
+    base: BaseCard,
+    brands: {
+      "vuse-en": VuseEnCard,  // Add brand override here
+    },
+  },
+};
+```
+
+### Step 5: Use in Your Application
 
 ```typescript
 // src/routes/SomePage.tsx
-import { Card } from "@/components/resolved/Card";
+import { Card } from "@/components";  // Import from barrel
 
 function SomePage() {
   return <Card title="Example">Content here</Card>;
@@ -459,49 +542,62 @@ declare global {
 
 ## Benefits of This Architecture
 
-### 1. Single Import Path
+### 1. Clean Import Paths
 
-Consumers always import from `resolved/`, never needing to know about brands:
+Consumers always import from barrel files, never needing to know about brands:
 
 ```typescript
-import { Button } from "@/components/resolved/Button";
-import { Layout } from "@/layouts/resolved/DefaultLayout";
+import { Button } from "@/components";
+import { DefaultLayout } from "@/layouts";
 ```
 
-### 2. Scalability
+### 2. Automatic Resolution
 
-- Add new brands without changing existing code
+- No manual switch statements for each component
+- Registry-based lookup with automatic fallback chain
+- Tries: `brand-locale` → `brand` → `base`
+- Type-safe component resolution with generics
+- 90% less boilerplate code
+
+### 3. Scalability
+
+- Add new brands by updating registry only
 - Each brand only needs to override what differs from base
 - Base implementations provide sensible defaults
 - Pattern applies to components, layouts, and any UI structure
+- No need to modify barrel exports when adding brands
 
-### 3. Type Safety
+### 4. Type Safety
 
 - Shared TypeScript interfaces ensure consistency
 - Brand-specific components must match base component contracts
 - Vanilla Extract provides compile-time CSS type safety
 - Theme contract ensures type-safe theme values
+- Generic resolver ensures component type consistency
 
-### 4. Maintainability
+### 5. Maintainability
 
-- Clear separation between base, brand, and resolved layers
-- Easy to see which components have brand overrides
+- Clear separation between base, brand, and registry layers
+- All component mappings visible in one registry file
 - Centralized brand detection logic
 - Co-located styles with components
+- Self-documenting registry shows all overrides at a glance
 
-### 5. Performance
+### 6. Performance
 
 - Resolution happens once at module load time (IIFE pattern)
 - No runtime overhead for component selection
 - Vanilla Extract generates zero-runtime CSS
 - Automatic CSS optimization and minification
+- Tree-shaking works with barrel exports
 
-### 6. Developer Experience
+### 7. Developer Experience
 
 - IntelliSense for theme variables
 - Type-safe styling
 - Hot module replacement works seamlessly
 - Path aliases (`@/`) for clean imports
+- Easy to see which components have brand overrides
 
 ## Best Practices
 
@@ -559,15 +655,16 @@ components/ (or layouts/, etc.)
         ComponentName.css.ts    # Brand-specific styles
         index.ts                # Re-exports (optional)
 
-  resolved/
-    ComponentName.tsx         # Resolution logic (no folder)
+  registry.ts                 # Component registry (maps base → brands)
+  index.ts                    # Barrel export with automatic resolution
 ```
 
 **Key Points:**
 
 - Both base and brand components are in their own folders
 - Each folder contains co-located `.tsx` and `.css.ts` files
-- Resolved exports are single files (no folder needed)
+- Registry file centralizes all component mappings
+- Barrel export uses resolver for automatic brand selection
 - Use path aliases (`@/`) for cleaner imports
 
 ### Naming Conventions
@@ -589,26 +686,45 @@ export type TBrand = "vuse" | "glo" | "velo"; // Add "velo"
 ### 2. Create Brand Directory
 
 ```
-src/components/brands/velo/
+src/components/brands/velo-en/
 ```
 
 ### 3. Add Overrides as Needed
 
 Only create overrides for components that differ from base.
 
-### 4. Update Resolution
+```typescript
+// src/components/brands/velo-en/Button/Button.tsx
+export const VeloEnButton: React.FC<ButtonProps> = ({ children, ...rest }) => {
+  return (
+    <button className={buttonClass} {...rest}>
+      {children}
+    </button>
+  );
+};
+```
+
+### 4. Update Registry Only
+
+No need to touch barrel exports or resolved files! Just update the registry:
 
 ```typescript
-// src/components/resolved/Button.tsx
-switch (brand) {
-  case "vuse":
-    return VuseButton;
-  case "velo":
-    return VeloButton;
-  default:
-    return BaseButton;
-}
+// src/components/registry.ts
+import { VeloEnButton } from "./brands/velo-en/Button/Button";
+
+export const componentRegistry = {
+  Button: {
+    base: BaseButton,
+    brands: {
+      "vuse-en": VuseEnButton,
+      "velo-en": VeloEnButton,  // Just add this line!
+    },
+  },
+  // Other components...
+};
 ```
+
+That's it! The resolver automatically handles the new brand.
 
 ## Vanilla Extract Setup
 
