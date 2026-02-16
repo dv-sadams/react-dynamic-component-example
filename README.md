@@ -18,24 +18,22 @@ src/
 │   ├── base/           # Default component implementations
 │   │   └── Button/
 │   │       ├── Button.tsx
-│   │       └── Button.css.ts
-│   ├── brands/         # Brand-specific component overrides
-│   │   └── vuse-en/
-│   │       └── Button/
-│   │           ├── Button.tsx
-│   │           └── Button.css.ts
+│   │       ├── Button.css.ts
+│   │       └── brands/          # Brand-specific overrides for Button
+│   │           └── vuse-en/
+│   │               ├── Button.tsx
+│   │               └── Button.css.ts
 │   ├── registry.ts     # Component registry (maps base → brand overrides)
 │   └── index.ts        # Barrel export (consumer-facing)
 ├── layouts/
 │   ├── base/           # Default layout implementations
 │   │   └── DefaultLayout/
 │   │       ├── DefaultLayout.tsx
-│   │       └── DefaultLayout.css.ts
-│   ├── brands/         # Brand-specific layout overrides
-│   │   └── vuse-en/
-│   │       └── DefaultLayout/
-│   │           ├── DefaultLayout.tsx
-│   │           └── DefaultLayout.css.ts
+│   │       ├── DefaultLayout.css.ts
+│   │       └── brands/          # Brand-specific overrides for DefaultLayout
+│   │           └── vuse-en/
+│   │               ├── DefaultLayout.tsx
+│   │               └── DefaultLayout.css.ts
 │   ├── registry.ts     # Layout registry (maps base → brand overrides)
 │   └── index.ts        # Barrel export (consumer-facing)
 ├── styles/
@@ -89,7 +87,7 @@ export const buttonStyle = style({
 Brand components override the base implementation when needed:
 
 ```typescript
-// src/components/brands/vuse-en/Button/Button.tsx
+// src/components/base/Button/brands/vuse-en/Button.tsx
 export const VuseEnButton: React.FC<ButtonProps> = ({ children, ...rest }) => {
   return (
     <button className={buttonClass} {...rest}>
@@ -100,7 +98,7 @@ export const VuseEnButton: React.FC<ButtonProps> = ({ children, ...rest }) => {
 ```
 
 ```typescript
-// src/components/brands/vuse-en/Button/Button.css.ts
+// src/components/base/Button/brands/vuse-en/Button.css.ts
 import { style } from "@vanilla-extract/css";
 import { vars } from "@/styles/theme.contract.css";
 
@@ -119,7 +117,7 @@ The registry maps base components to their brand-specific overrides:
 ```typescript
 // src/components/registry.ts
 import { BaseButton } from "./base/Button/Button";
-import { VuseEnButton } from "./brands/vuse-en/Button/Button";
+import { VuseEnButton } from "./base/Button/brands/vuse-en/Button";
 
 export const componentRegistry = {
   Button: {
@@ -294,7 +292,7 @@ export const defaultLayout = style({
 ### Brand-Specific Layout
 
 ```typescript
-// src/layouts/brands/vuse-en/DefaultLayout/DefaultLayout.tsx
+// src/layouts/base/DefaultLayout/brands/vuse-en/DefaultLayout.tsx
 import { Outlet } from "react-router";
 import { defaultLayout } from "./DefaultLayout.css";
 
@@ -308,7 +306,7 @@ export const VuseEnDefaultLayout = () => {
 ```
 
 ```typescript
-// src/layouts/brands/vuse-en/DefaultLayout/DefaultLayout.css.ts
+// src/layouts/base/DefaultLayout/brands/vuse-en/DefaultLayout.css.ts
 import { style } from "@vanilla-extract/css";
 import { vars } from "@/styles/theme.contract.css";
 
@@ -326,7 +324,7 @@ Layouts use the same registry pattern:
 ```typescript
 // src/layouts/registry.ts
 import { BaseLayout } from "./base/DefaultLayout/DefaultLayout";
-import { VuseEnDefaultLayout } from "./brands/vuse-en/DefaultLayout/DefaultLayout";
+import { VuseEnDefaultLayout } from "./base/DefaultLayout/brands/vuse-en/DefaultLayout";
 
 export const layoutRegistry = {
   DefaultLayout: {
@@ -395,7 +393,7 @@ Add your component to the registry:
 ```typescript
 // src/components/registry.ts
 import { BaseButton } from "./base/Button/Button";
-import { VuseEnButton } from "./brands/vuse-en/Button/Button";
+import { VuseEnButton } from "./base/Button/brands/vuse-en/Button";
 import { BaseCard } from "./base/Card/Card";  // Add this
 
 export const componentRegistry = {
@@ -432,7 +430,7 @@ export const Card = resolveComponent(componentRegistry.Card);  // Add this
 Only create if the brand needs different structure or behavior:
 
 ```typescript
-// src/components/brands/vuse-en/Card/Card.tsx
+// src/components/base/Card/brands/vuse-en/Card.tsx
 import { cardContainer, cardTitle } from "./Card.css";
 
 export const VuseEnCard: React.FC<CardProps> = ({ title, children }) => {
@@ -446,7 +444,7 @@ export const VuseEnCard: React.FC<CardProps> = ({ title, children }) => {
 ```
 
 ```typescript
-// src/components/brands/vuse-en/Card/Card.css.ts
+// src/components/base/Card/brands/vuse-en/Card.css.ts
 import { style } from "@vanilla-extract/css";
 import { vars } from "@/styles/theme.contract.css";
 
@@ -468,7 +466,7 @@ Then update the registry to include the brand override:
 
 ```typescript
 // src/components/registry.ts
-import { VuseEnCard } from "./brands/vuse-en/Card/Card";  // Import brand override
+import { VuseEnCard } from "./base/Card/brands/vuse-en/Card";  // Import brand override
 
 export const componentRegistry = {
   // ... other components
@@ -647,13 +645,11 @@ components/ (or layouts/, etc.)
       ComponentName.css.ts    # Vanilla Extract styles
       ComponentName.test.tsx  # Tests (optional)
       index.ts                # Re-exports (optional)
-
-  brands/
-    [brand-locale]/           # e.g., vuse-en, vuse-fr, glo-en
-      ComponentName/
-        ComponentName.tsx       # Brand override logic
-        ComponentName.css.ts    # Brand-specific styles
-        index.ts                # Re-exports (optional)
+      brands/                 # Brand overrides nested within component
+        [brand-locale]/       # e.g., vuse-en, vuse-fr, glo-en
+          ComponentName.tsx       # Brand override logic
+          ComponentName.css.ts    # Brand-specific styles
+          index.ts                # Re-exports (optional)
 
   registry.ts                 # Component registry (maps base → brands)
   index.ts                    # Barrel export with automatic resolution
@@ -661,7 +657,8 @@ components/ (or layouts/, etc.)
 
 **Key Points:**
 
-- Both base and brand components are in their own folders
+- Base components are in their own folders under `base/`
+- Brand overrides are nested within each component's `brands/` folder
 - Each folder contains co-located `.tsx` and `.css.ts` files
 - Registry file centralizes all component mappings
 - Barrel export uses resolver for automatic brand selection
@@ -686,7 +683,7 @@ export type TBrand = "vuse" | "glo" | "velo"; // Add "velo"
 ### 2. Create Brand Directory
 
 ```
-src/components/brands/velo-en/
+src/components/base/Button/brands/velo-en/
 ```
 
 ### 3. Add Overrides as Needed
@@ -694,7 +691,7 @@ src/components/brands/velo-en/
 Only create overrides for components that differ from base.
 
 ```typescript
-// src/components/brands/velo-en/Button/Button.tsx
+// src/components/base/Button/brands/velo-en/Button.tsx
 export const VeloEnButton: React.FC<ButtonProps> = ({ children, ...rest }) => {
   return (
     <button className={buttonClass} {...rest}>
@@ -710,7 +707,7 @@ No need to touch barrel exports or resolved files! Just update the registry:
 
 ```typescript
 // src/components/registry.ts
-import { VeloEnButton } from "./brands/velo-en/Button/Button";
+import { VeloEnButton } from "./base/Button/brands/velo-en/Button";
 
 export const componentRegistry = {
   Button: {
